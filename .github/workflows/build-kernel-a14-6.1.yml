@@ -21,38 +21,38 @@ jobs:
         #   kernel版本: "6.1"
         #   sub_level: "57"
         #   os_patch_level: "2024-01"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "68"
         #   os patch_level: "2024-03"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "75"
         #   os patch_level: "2024-05"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "78"
         #   os patch_level: "2024-06"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "84"
         #   os patch_level: "2024-07"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "90"
         #   os patch_level: "2024-08"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "112"
         #   os patch_level: "2024-11"
-        # - android_version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub level: "115"
         #   os patch_level: "2024-12"
-        # - android version: "android14"
+        # - android版本: "android14"
         #   kernel版本: "6.1"
         #   sub_level: "X"
-        #   os patch_level: "lts"
+        #   os patch level: "lts"
 
     steps:
       - name: Maximize build space
@@ -187,7 +187,7 @@ jobs:
           cp ../kernel_patches/apk_sign.c_fix.patch ./
           patch -p1 -F 3 < apk_sign.c_fix.patch
           cp ../kernel_patches/core_hook.c_fix.patch ./
-          patch -p1 --fuzz=3 < core_hook.c_fix.patch
+          patch -p1 --fuzz=3 < core_hook.c.fix.patch
           cp ../kernel_patches/selinux.c_fix.patch ./
           patch -p1 -F 3 < selinux.c_fix.patch
 
@@ -227,6 +227,13 @@ jobs:
           
           # Add additional tmpfs config setting
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Check if build.config.gki exists
+        run: |
+          if [ ! -f ./common/build.config.gki ]; then
+            echo "File not found: ./common/build.config.gki"
+            exit 1
+          fi
 
       - name: Apply Power-saving and AI-learning Optimizations
         run: |
@@ -292,7 +299,7 @@ jobs:
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
           # Run perl command to modify UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile[...]
+          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile[[...]
 
       - name: Build the Kernel
         run: |
@@ -331,7 +338,7 @@ jobs:
           
           echo "Building boot-gz.img"
           $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-          $AVBTOOL add_hash footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+          $AVBTOOL add_hash footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT SIGN_KEY_PATH
           cp ./boot-gz.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-gz.img
           
           echo "Building boot-lz4.img"

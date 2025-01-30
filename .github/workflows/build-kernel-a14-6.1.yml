@@ -229,6 +229,10 @@ jobs:
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
 
+      - name: Apply Power-saving and AI-learning Optimizations
+        run: |
+          echo "Applying power-saving and AI-learning optimizations..."
+          
       - name: Fix Missing build.config.gki
         run: |
           echo "切换到配置目录: $CONFIG..."
@@ -256,9 +260,7 @@ jobs:
           # 运行 perl 命令来修改 UTS_VERSION
           perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
 
-      - name: Apply Power-saving and AI-learning Optimizations
-        run: |
-          echo "Applying power-saving and AI-learning optimizations..."
+      
           
           # 开启 EAS（Energy Aware Scheduling），让 CPU 更高效地调度任务
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki

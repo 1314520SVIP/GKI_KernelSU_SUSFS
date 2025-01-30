@@ -228,13 +228,6 @@ jobs:
           # Add additional tmpfs config setting
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: Check if build.config.gki exists
-        run: |
-          if [ ! -f ./common/build.config.gki ]; then
-            echo "File not found: ./common/build.config.gki"
-            exit 1
-          fi
-
       - name: Apply Power-saving and AI-learning Optimizations
         run: |
           echo "Applying power-saving and AI-learning optimizations..."

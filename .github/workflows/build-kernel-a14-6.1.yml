@@ -228,6 +228,34 @@ jobs:
           # Add additional tmpfs config setting
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
+
+      - name: Fix Missing build.config.gki
+        run: |
+          echo "切换到配置目录: $CONFIG..."
+          cd "$CONFIG/common" || { echo "错误: 目录 $CONFIG/common 不存在！"; exit 1; }
+          
+          if [ ! -f "build.config.gki" ]; then
+            echo "警告: build.config.gki 文件不存在，正在创建..."
+            touch build.config.gki
+          fi
+          
+          echo "build.config.gki 文件已检查完成！"
+
+      - name: Run sed and perl Commands
+        run: |
+          echo "切换到配置目录: $CONFIG..."
+          cd "$CONFIG"
+
+          echo "运行 sed 命令..."
+          
+          # 进行 sed 修改
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+
+          # 运行 perl 命令来修改 UTS_VERSION
+          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+
       - name: Apply Power-saving and AI-learning Optimizations
         run: |
           echo "Applying power-saving and AI-learning optimizations..."

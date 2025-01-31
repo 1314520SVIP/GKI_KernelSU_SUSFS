@@ -339,7 +339,7 @@ jobs:
 
           echo "✅ Low-power optimizations applied before kernel build."
 
-      # 步骤: 应用 Snapdragon 8 Gen3 特定优化
+         # 步骤: 应用 Snapdragon 8 Gen3 特定优化
       - name: Apply Snapdragon 8 Gen3 specific optimizations
         run: |
           echo "应用 Snapdragon 8 Gen3 特定优化..."

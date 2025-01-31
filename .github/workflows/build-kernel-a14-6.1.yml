@@ -30,7 +30,7 @@ jobs:
         #   sub_level: "75"
         #   os_patch_level: "2024-05"
         # - android_version: "android14"
-        #   kernel_version: "6.1"
+        #   kernel版本: "6.1"
         #   sub_level: "78"
         #   os_patch_level: "2024-06"
         # - android_version: "android14"
@@ -46,7 +46,7 @@ jobs:
         #   sub_level: "112"
         #   os_patch_level: "2024-11"
         # - android_version: "android14"
-        #   kernel_version: "6.1"
+        #   kernel版本: "6.1"
         #   sub_level: "115"
         #   os_patch_level: "2024-12"
         # - android_version: "android14"
@@ -257,7 +257,7 @@ jobs:
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
           # 运行 perl 命令来修改 UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompil[...]
+          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_[...]
 
           # 开启 EAS（Energy Aware Scheduling），让 CPU 更高效地调度任务
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki
@@ -339,7 +339,6 @@ jobs:
 
           echo "✅ Low-power optimizations applied before kernel build."
 
-         # 步骤: 应用 Snapdragon 8 Gen3 特定优化
       - name: Apply Snapdragon 8 Gen3 specific optimizations
         run: |
           echo "Applying Snapdragon 8 Gen3 specific optimizations..."
@@ -370,26 +369,29 @@ jobs:
 
           echo "Snapdragon 8 Gen3 specific optimizations applied successfully."
 
-      - name: Build the Kernel
+      - name: Verify Kernel Build
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG"
-          
-          echo "Building the kernel..."
-          rm -rf ./common/android/abi_gki_protected_exports_*
-          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
+          echo "Verifying kernel build..."
+          if [ ! -f "bazel-bin/common/kernel_aarch64/Image" ]; then
+            echo "Error: bazel-bin/common/kernel_aarch64/Image not found!"
+            exit 1
+          fi
+          if [ ! -f "bazel-bin/common/kernel_aarch64/Image.lz4" ]; then
+            echo "Error: bazel-bin/common/kernel_aarch64/Image.lz4 not found!"
+            exit 1
+          fi
+          echo "Kernel build verification successful."
 
       - name: Create Bootimgs Folder and Copy Images
         run: |
           echo "Changing to configuration directory: $CONFIG..."
-          mkdir bootimgs
+          cd "$CONFIG"
           
           echo "Creating bootimgs folder and copying images..."
+          mkdir bootimgs
           cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
           cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
-          cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
-          cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
-          
+
           # Create gzip of the Image file
           gzip -n -k -f -9 ./bootimgs/Image > ./bootimgs/Image.gz
 

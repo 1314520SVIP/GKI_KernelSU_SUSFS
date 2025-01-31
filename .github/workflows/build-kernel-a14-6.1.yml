@@ -355,7 +355,7 @@ jobs:
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
           # Run perl command to modify UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile[[...]
+          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
 
       - name: Build the Kernel
         run: |
@@ -394,12 +394,12 @@ jobs:
           
           echo "Building boot-gz.img"
           $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-          $AVBTOOL add_hash footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT SIGN_KEY_PATH
+          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-gz.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-gz.img
           
           echo "Building boot-lz4.img"
           $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
-          $AVBTOOL add hash footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           cp ./boot-lz4.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-lz4.img
 
       - name: Create ZIP Files for Different Formats

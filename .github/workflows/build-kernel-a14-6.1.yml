@@ -373,10 +373,6 @@ jobs:
           echo "Snapdragon 8 Gen3 特定优化应用完成。"
           name: Kernel Build with Performance Tuningon:
 
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
       # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v4

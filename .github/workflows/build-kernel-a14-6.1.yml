@@ -371,15 +371,21 @@ jobs:
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
 
           echo "Snapdragon 8 Gen3 特定优化应用完成。"
+          name: Kernel Build with Performance Tuningon:
 
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Fetch the list of possible game processes from the network
+      # Step 2: Fetch the list of possible game processes from the network
       - name: Fetch Game Process List
         run: |
           echo "Fetching process list from network..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" https://yourserver.com/api/get_process_list)
+          RESPONSE=$(curl -s -w "\n%{http_code}" https://gist.githubusercontent.com/1314520SVIP/d77e9a181304493c8dfca01f05aaacf8/raw/1797935215e99a6d47b172b3e6309bd90642106e/game_process_list.json)
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           PROCESS_LIST=$(echo "$RESPONSE" | head -n -1)
 
@@ -406,7 +412,7 @@ jobs:
           echo "Game processes detected: $GAME_PROCESSES"
           echo "GAME_PROCESSES=$GAME_PROCESSES" >> $GITHUB_ENV
 
-      # Monitor the activity for either game or normal use
+      # Step 3: Monitor the activity for either game or normal use
       - name: Monitor Activity for Game or Normal Use
         run: |
           echo "Checking active processes..."
@@ -426,7 +432,7 @@ jobs:
             echo "No game detected. Enabling power-saving mode..."
             echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
 
-      # Apply performance settings based on the detected mode
+      # Step 4: Apply performance settings based on the detected mode
       - name: Apply Performance Settings
         run: |
           CONFIG_FILE="./common/build.config.gki"

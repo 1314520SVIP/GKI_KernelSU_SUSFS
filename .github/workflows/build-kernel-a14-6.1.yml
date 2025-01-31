@@ -296,18 +296,51 @@ jobs:
         run: |
           echo "Applying additional low-power optimizations..."
           
-          # 限制后台任务最大 CPU 频率
-          echo 800000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-          echo 1200000 > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-          
-          # 触摸优化，提高游戏体验
-          echo 1 > /sys/module/input_boost/parameters/input_boost_enabled
-          
-          # 降低 GPU 频率以节能（游戏时动态调整）
-          echo 200000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
-          echo 800000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
-          
-          echo "Low-power optimizations applied before kernel build."
+          # 限制后台任务最大 CPU 频率（确保文件存在）
+          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
+              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+          else
+              echo "⚠️ Warning: CPU0 scaling_max_freq not found, skipping."
+          fi
+
+          if [ -f /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq ]; then
+              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+              echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+          else
+              echo "⚠️ Warning: CPU4 scaling_max_freq not found, skipping."
+          fi
+
+          # 触摸优化，提高游戏体验（检查文件是否存在）
+          if [ -f /sys/module/input_boost/parameters/input_boost_enabled ]; then
+              sudo chmod 666 /sys/module/input_boost/parameters/input_boost_enabled
+              echo 1 | sudo tee /sys/module/input_boost/parameters/input_boost_enabled
+          else
+              echo "⚠️ Warning: input_boost_enabled not found, skipping."
+          fi
+
+          # 降低 GPU 频率以节能（游戏时动态调整，确保文件存在）
+          if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
+              echo "Detected GPU frequency scaling support, applying optimizations..."
+
+              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+                  echo 200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+              else
+                  echo "⚠️ Warning: GPU min_freq not found, skipping."
+              fi
+
+              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/max_freq ]; then
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+                  echo 800000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+              else
+                  echo "⚠️ Warning: GPU max_freq not found, skipping."
+              fi
+          else
+              echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
+          fi
+
+          echo "✅ Low-power optimizations applied before kernel build."
 
       - name: Run sed and perl Commands
         run: |

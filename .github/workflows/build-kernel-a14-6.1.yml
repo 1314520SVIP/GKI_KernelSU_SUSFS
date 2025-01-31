@@ -413,7 +413,9 @@ jobs:
           echo "Checking active processes..."
 
           GAME_RUNNING=""
+          # Fix: Ensure each process name is checked correctly by escaping potential spaces or special characters
           for GAME_PROCESS in $(echo "$GAME_PROCESSES" | tr "," "\n"); do
+            GAME_PROCESS=$(echo "$GAME_PROCESS" | xargs)  # Remove leading/trailing spaces
             if pgrep -f "$GAME_PROCESS" > /dev/null; then
               GAME_RUNNING="$GAME_PROCESS"
               break

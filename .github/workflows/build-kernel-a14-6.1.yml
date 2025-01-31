@@ -339,17 +339,6 @@ jobs:
 
           echo "✅ Low-power optimizations applied before kernel build."
 
-      # 步骤: 检出源代码
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # 步骤: 设置环境
-      - name: Set up environment
-        run: |
-          echo "正在设置环境..."
-          sudo apt-get update
-          sudo apt-get install -y build-essential git curl
-
       # 步骤: 应用 Snapdragon 8 Gen3 特定优化
       - name: Apply Snapdragon 8 Gen3 specific optimizations
         run: |

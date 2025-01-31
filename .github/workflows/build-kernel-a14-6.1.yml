@@ -339,6 +339,44 @@ jobs:
 
           echo "✅ Low-power optimizations applied before kernel build."
 
+      # 步骤: 检出源代码
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # 步骤: 设置环境
+      - name: Set up environment
+        run: |
+          echo "正在设置环境..."
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl
+
+      # 步骤: 应用 Snapdragon 8 Gen3 特定优化
+      - name: Apply Snapdragon 8 Gen3 specific optimizations
+        run: |
+          echo "应用 Snapdragon 8 Gen3 特定优化..."
+          
+          # 检查 build.config.gki 文件是否存在
+          if [ ! -f "./common/build.config.gki" ]; then
+            echo "警告: build.config.gki 文件不存在，正在创建..."
+            touch ./common/build.config.gki
+          fi
+
+          # 激活 Snapdragon 8 Gen3 独占调度优化
+          echo "激活 Snapdragon 8 Gen3 独占调度优化..."
+          sed -i 's/CONFIG_SCHED_HMP=y/CONFIG_SCHED_HMP=1/' ./common/build.config.gki
+          sed -i 's/CONFIG_CPU_FREQ_GOV_ONDEMAND=y/CONFIG_CPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
+          sed -i 's/CONFIG_GPU_FREQ_GOV_ONDEMAND=y/CONFIG_GPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
+          sed -i 's/CONFIG_SCHED_TUNE_BOOST=0/CONFIG_SCHED_TUNE_BOOST=1/' ./common/build.config.gki
+          sed -i 's/CONFIG_GAMING_PERFORMANCE_BOOST=0/CONFIG_GAMING_PERFORMANCE_BOOST=1/' ./common/build.config.gki
+
+          # 添加 Snapdragon 8 Gen3 特定的调度选项
+          echo "CONFIG_CPU_FREQ_GOV_SCHED=y" >> ./common/build.config.gki
+          echo "CONFIG_SCHED_DYNAMIC_PERIOD=y" >> ./common/build.config.gki
+          echo "CONFIG_SCHEDUTIL_UTILIZATION=1" >> ./common/build.config.gki
+          echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
+
+          echo "Snapdragon 8 Gen3 特定优化应用完成。"
+
       - name: Snapdragon 8 Gen3 Optimizations
         run: |
           echo "Applying Snapdragon 8 Gen3 specific optimizations..."

@@ -405,7 +405,11 @@ jobs:
           fi
 
           echo "Game processes detected: $GAME_PROCESSES"
-          echo "GAME_PROCESSES=$GAME_PROCESSES" >> $GITHUB_ENV
+          
+          # Escape characters for safe use in environment variables
+          SAFE_GAME_PROCESSES=$(echo "$GAME_PROCESSES" | sed 's/[^a-zA-Z0-9,]//g')
+          
+          echo "SAFE_GAME_PROCESSES=$SAFE_GAME_PROCESSES" >> $GITHUB_ENV
 
       # Step 3: Monitor the activity for either game or normal use
       - name: Monitor Activity for Game or Normal Use
@@ -414,7 +418,7 @@ jobs:
 
           GAME_RUNNING=""
           # Fix: Ensure each process name is checked correctly by escaping potential spaces or special characters
-          for GAME_PROCESS in $(echo "$GAME_PROCESSES" | tr "," "\n"); do
+          for GAME_PROCESS in $(echo "$SAFE_GAME_PROCESSES" | tr "," "\n"); do
             GAME_PROCESS=$(echo "$GAME_PROCESS" | xargs)  # Remove leading/trailing spaces
             if pgrep -f "$GAME_PROCESS" > /dev/null; then
               GAME_RUNNING="$GAME_PROCESS"

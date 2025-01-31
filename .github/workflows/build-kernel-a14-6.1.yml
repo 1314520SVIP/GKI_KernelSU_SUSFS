@@ -371,7 +371,6 @@ jobs:
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
 
           echo "Snapdragon 8 Gen3 特定优化应用完成。"
-          name: Kernel Build with Performance Tuningon:
 
       # Step 1: Checkout the repository
       - name: Checkout Repository

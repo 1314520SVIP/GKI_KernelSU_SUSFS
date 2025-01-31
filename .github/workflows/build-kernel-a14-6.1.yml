@@ -228,7 +228,6 @@ jobs:
           # Add additional tmpfs config setting
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-
       - name: Apply Power-saving and AI-learning Optimizations
         run: |
           echo "Applying power-saving and AI-learning optimizations..."
@@ -260,8 +259,6 @@ jobs:
           # 运行 perl 命令来修改 UTS_VERSION
           perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
 
-      
-          
           # 开启 EAS（Energy Aware Scheduling），让 CPU 更高效地调度任务
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki
           echo "CONFIG_SCHED_TUNE_BOOST=0" >> ./common/build.config.gki
@@ -341,6 +338,123 @@ jobs:
           fi
 
           echo "✅ Low-power optimizations applied before kernel build."
+
+      - name: Snapdragon 8 Gen3 Optimizations
+        run: |
+          echo "Applying Snapdragon 8 Gen3 specific optimizations..."
+          
+          # 激活骁龙8 Gen3专有调度（如果有）
+          echo "Activating Snapdragon 8 Gen3 exclusive scheduler optimizations..."
+          
+          # 核心优化 - 基于骁龙8 Gen3的调度器配置
+          sed -i '/CONFIG_SCHED_MTUNE/d' ./common/build.config.gki
+          echo "CONFIG_SCHED_MTUNE=1" >> ./common/build.config.gki
+          
+          # 启用骁龙8 Gen3的多核调度策略
+          echo "CONFIG_SCHED_HMP=1" >> ./common/build.config.gki
+          echo "CONFIG_SCHED_BOOST=0" >> ./common/build.config.gki
+
+          # 设置调度器响应策略 - 针对骁龙8 Gen3调度
+          sed -i '/CONFIG_SCHED_MANDATORY_DELAY/d' ./common/build.config.gki
+          echo "CONFIG_SCHED_MANDATORY_DELAY=0" >> ./common/build.config.gki
+          
+          # 启动支持骁龙8 Gen3的 CPU 最大频率动态调整
+          echo "CONFIG_CPU_FREQ_GOV_SCHED=1" >> ./common/build.config.gki
+          
+          # 降低负载下的功耗
+          echo "CONFIG_SCHED_IDLE_STAT=y" >> ./common/build.config.gki
+          
+          # 降低睡眠功耗优化
+          echo "CONFIG_CPU_IDLE=y" >> ./common/build.config.gki
+
+          # 提高任务调度的效率
+          echo "CONFIG_SCHED_PRIORITY_BOOST=0" >> ./common/build.config.gki
+          
+          # 启用骁龙8 Gen3的内存管理优化
+          echo "CONFIG_MEMCG=y" >> ./common/build.config.gki
+          echo "CONFIG_LRU_GEN=1" >> ./common/build.config.gki
+          
+          echo "Snapdragon 8 Gen3 optimizations applied successfully."
+
+      - name: Monitor Activity for Game or Normal Use
+        run: |
+          echo "Monitoring device activity for smart performance tuning..."
+
+          # 联网获取进程列表
+          echo "Fetching process list from network..."
+          PROCESS_LIST=$(curl -s https://yourserver.com/api/get_process_list)
+
+          # 假设返回的数据是 JSON 格式，包含可能的游戏进程名
+          GAME_PROCESSES=$(echo $PROCESS_LIST | jq -r '.game_processes')
+
+          # 检测是否有可能的游戏进程
+          GAME_RUNNING=""
+          for GAME_PROCESS in $(echo $GAME_PROCESSES | tr "," "\n"); do
+              GAME_RUNNING=$(pgrep -f "$GAME_PROCESS")
+              if [ -n "$GAME_RUNNING" ]; then
+                  break
+              fi
+          done
+
+          if [ -n "$GAME_RUNNING" ]; then
+              # 检测到游戏进程，启用高性能模式
+              echo "Detected game activity. Enabling high performance mode..."
+              
+              # 设置为最大性能模式
+              echo "Enabling high-performance mode for gaming..."
+              echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=1" >> ./common/build.config.gki
+              echo "CONFIG_GPU_FREQ_GOV_PERFORMANCE=1" >> ./common/build.config.gki
+              echo "CONFIG_DRM_PANEL_NOTIFICATIONS=n" >> ./common/build.config.gki
+              echo "CONFIG_SCHED_BOOST=1" >> ./common/build.config.gki
+              echo "CONFIG_GAMING_PERFORMANCE_BOOST=1" >> ./common/build.config.gki
+              echo "CONFIG_DRM_PANEL_FREQUENCY=120" >> ./common/build.config.gki
+
+              # 启用更高的刷新率和高性能的 CPU 和 GPU
+              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              echo 3000000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+              echo 3000000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+
+              # GPU 最大频率提升
+              if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
+                  echo "Boosting GPU frequencies for gaming..."
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+                  echo 1200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+              fi
+
+              # 高刷新率设置
+              echo "Enabling 120Hz refresh rate..."
+              echo "CONFIG_DISPLAY_REFRESH_RATE=120" >> ./common/build.config.gki
+
+          else
+              # 如果没有检测到游戏进程，进入省电模式
+              echo "No game detected. Enabling power-saving mode..."
+              echo "CONFIG_CPU_FREQ_GOV_ONDEMAND=1" >> ./common/build.config.gki
+              echo "CONFIG_GPU_FREQ_GOV_ONDEMAND=1" >> ./common/build.config.gki
+              echo "CONFIG_DRM_PANEL_NOTIFICATIONS=y" >> ./common/build.config.gki
+              echo "CONFIG_SCHED_BOOST=0" >> ./common/build.config.gki
+              echo "CONFIG_CPU_FREQ_LIMIT_BACKGROUND=800000" >> ./common/build.config.gki
+              echo "CONFIG_DRM_PANEL_FREQUENCY=60" >> ./common/build.config.gki
+
+              # 降低 CPU 频率以节能
+              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+              echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+
+              # 降低 GPU 频率节能
+              if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
+                  echo "Reducing GPU frequency for power-saving..."
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+                  echo 400000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+              fi
+
+              # 降低刷新率至60Hz
+              echo "Setting refresh rate to 60Hz for power-saving..."
+              echo "CONFIG_DISPLAY_REFRESH_RATE=60" >> ./common/build.config.gki
+          fi
+
+          echo "Performance mode adjustments complete based on activity."
 
       - name: Run sed and perl Commands
         run: |

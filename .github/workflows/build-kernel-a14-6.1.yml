@@ -13,46 +13,6 @@ jobs:
             kernel_version: "6.1"
             sub_level: "25"
             os_patch_level: "2023-10"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "43"
-        #   os_patch_level: "2023-11"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "57"
-        #   os_patch_level: "2024-01"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "68"
-        #   os_patch_level: "2024-03"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "75"
-        #   os_patch_level: "2024-05"
-        # - android_version: "android14"
-        #   kernel版本: "6.1"
-        #   sub_level: "78"
-        #   os_patch_level: "2024-06"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "84"
-        #   os_patch_level: "2024-07"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "90"
-        #   os_patch_level: "2024-08"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "112"
-        #   os_patch_level: "2024-11"
-        # - android_version: "android14"
-        #   kernel版本: "6.1"
-        #   sub_level: "115"
-        #   os_patch_level: "2024-12"
-        # - android_version: "android14"
-        #   kernel_version: "6.1"
-        #   sub_level: "X"
-        #   os_patch_level: "lts"
 
     steps:
       - name: Maximize build space
@@ -68,12 +28,8 @@ jobs:
 
       - name: Set CONFIG Environment Variable
         run: |
-          # Set CONFIG dynamically based on matrix values
           CONFIG="${{ matrix.android_version }}-${{ matrix.kernel_version }}-${{ matrix.sub_level }}"
-          
-          # Set CONFIG as an environment variable for future steps
           echo "CONFIG=$CONFIG" >> $GITHUB_ENV
-          
           echo "CONFIG set to: $CONFIG"
 
       - name: Download prebuilt toolchain
@@ -82,7 +38,6 @@ jobs:
           BRANCH=main-kernel-build-2024
           git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
-
           echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
           echo "MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py" >> $GITHUB_ENV
           echo "UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py" >> $GITHUB_ENV
@@ -101,7 +56,6 @@ jobs:
           
       - name: Install Repo
         run: |
-          # Install dependencies
           mkdir -p ./git-repo
           curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
           chmod a+rx ./git-repo/repo
@@ -110,16 +64,10 @@ jobs:
       - name: Clone AnyKernel3 and Other Dependencies
         run: |
           echo "Cloning AnyKernel3 and other dependencies..."
-    
-          # Define the branch names using the matrix values
           ANYKERNEL_BRANCH="${{ matrix.android_version }}-${{ matrix.kernel_version }}"
           SUSFS_BRANCH="gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}"
-
-          # Debug print the branches
           echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
           echo "Using branch for SUSFS: $SUSFS_BRANCH"
-
-          # Clone repositories using the branch names
           git clone https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
           git clone https://github.com/TheWildJames/kernel_patches.git
@@ -129,22 +77,15 @@ jobs:
           echo "Creating folder for configuration: $CONFIG..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          
-          # Initialize and sync kernel source
           echo "Initializing and syncing kernel source..."
           FORMATTED_BRANCH="${{ matrix.android_version }}-${{ matrix.kernel_version }}-${{ matrix.os_patch_level }}"
           $REPO init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
-          
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
           DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
-
-          # Check if branch is deprecated
           if grep -q deprecated <<< $REMOTE_BRANCH; then
             echo "Found deprecated branch: $FORMATTED_BRANCH"
             sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
           fi
-
-          # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
@@ -152,7 +93,6 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Adding KernelSU..."
           curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
 
@@ -160,21 +100,13 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Applying SUSFS patches..."
-          
-          # Copy SUSFS patches
           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-
           cd ./KernelSU-Next
-          
-          # Apply SUSFS patch for KernelSU
           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
-          
-          # Change to common directory and apply SUSFS patch
           cd ../common
           patch -p1 < 50_add_susfs_in_gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}.patch || true
           
@@ -182,7 +114,6 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Applying next SUSFS patches..."
           cp ../kernel_patches/apk_sign.c_fix.patch ./
           patch -p1 -F 3 < apk_sign.c_fix.patch
@@ -195,7 +126,6 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/common"
-          # Apply additional patch
           cp ../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch || true
 
@@ -203,10 +133,7 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Adding configuration settings to gki_defconfig..."
-          
-          # Add SUSFS configuration settings
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -224,8 +151,6 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          
-          # Add additional tmpfs config setting
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
       - name: Apply Power-saving and AI-learning Optimizations
@@ -236,97 +161,64 @@ jobs:
         run: |
           echo "切换到配置目录: $CONFIG..."
           cd "$CONFIG/common" || { echo "错误: 目录 $CONFIG/common 不存在！"; exit 1; }
-          
           if [ ! -f "build.config.gki" ]; then
             echo "警告: build.config.gki 文件不存在，正在创建..."
             touch build.config.gki
           fi
-          
           echo "build.config.gki 文件已检查完成！"
 
       - name: Run sed and perl Commands
         run: |
           echo "切换到配置目录: $CONFIG..."
           cd "$CONFIG"
-
           echo "运行 sed 命令..."
-          
-          # 进行 sed 修改
           sed -i 's/check_defconfig//' ./common/build.config.gki
           sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-
-          # 运行 perl 命令来修改 UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_[...]
-
-          # 开启 EAS（Energy Aware Scheduling），让 CPU 更高效地调度任务
+          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_uts.sh
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki
           echo "CONFIG_SCHED_TUNE_BOOST=0" >> ./common/build.config.gki
-          
-          # 降低调度延迟，提高流畅度
           echo "CONFIG_SCHED_LATENCY=1" >> ./common/build.config.gki
-          
-          # 降低 AI 任务功耗
           sed -i '/CONFIG_AI_BOOST_MODE/d' ./common/build.config.gki
           echo "CONFIG_AI_BOOST_MODE=1" >> ./common/build.config.gki
-          
-          # 限制后台任务 CPU 使用率，省电
           echo "CONFIG_CPU_FREQ_LIMIT_BACKGROUND=800000" >> ./common/build.config.gki
-          
-          # 游戏模式优化
           echo "CONFIG_GAMING_PERFORMANCE_BOOST=1" >> ./common/build.config.gki
-          
-          # 允许动态调整刷新率（60Hz-120Hz）
           sed -i '/CONFIG_DRM_PANEL_NOTIFICATIONS/d' ./common/build.config.gki
           echo "CONFIG_DRM_PANEL_NOTIFICATIONS=y" >> ./common/build.config.gki
-          
-          # 降低 ZRAM 功耗
           echo "CONFIG_ZRAM_LZ4_COMPRESS=y" >> ./common/build.config.gki
           echo "CONFIG_ZRAM_WRITEBACK=y" >> ./common/build.config.gki
-          
-          # 触摸优化，提高游戏响应速度
           echo "CONFIG_INPUT_BOOST=1" >> ./common/build.config.gki
-          
           echo "Power-saving and AI-learning optimizations applied successfully!"
 
       - name: Apply Additional Low-power Optimizations
         run: |
           echo "Applying additional low-power optimizations..."
-          
-          # 限制后台任务最大 CPU 频率（确保文件存在）
           if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
               sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
               echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
           else
               echo "⚠️ Warning: CPU0 scaling_max_freq not found, skipping."
           fi
-
           if [ -f /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq ]; then
               sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
               echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
           else
               echo "⚠️ Warning: CPU4 scaling_max_freq not found, skipping."
           fi
-
-          # 触摸优化，提高游戏体验（检查文件是否存在）
           if [ -f /sys/module/input_boost/parameters/input_boost_enabled ]; then
               sudo chmod 666 /sys/module/input_boost/parameters/input_boost_enabled
               echo 1 | sudo tee /sys/module/input_boost/parameters/input_boost_enabled
           else
               echo "⚠️ Warning: input_boost_enabled not found, skipping."
           fi
-
-          # 降低 GPU 频率以节能（游戏时动态调整，确保文件存在）
           if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
               echo "Detected GPU frequency scaling support, applying optimizations..."
-
               if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then
                   sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
                   echo 200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
               else
                   echo "⚠️ Warning: GPU min_freq not found, skipping."
               fi
-
               if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/max_freq ]; then
                   sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
                   echo 800000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
@@ -336,48 +228,52 @@ jobs:
           else
               echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
           fi
-
           echo "✅ Low-power optimizations applied before kernel build."
 
       - name: Apply Snapdragon 8 Gen3 specific optimizations
         run: |
           echo "Applying Snapdragon 8 Gen3 specific optimizations..."
-          
-          # Ensure the build.config.gki file exists
           if [ ! -d "./common" ]; then
             echo "Warning: ./common directory does not exist, creating it..."
             mkdir -p ./common
           fi
-
           if [ ! -f "./common/build.config.gki" ]; then
             echo "Warning: build.config.gki file does not exist, creating it..."
             touch ./common/build.config.gki
           fi
-
-          # Apply specific optimizations for Snapdragon 8 Gen3
           sed -i 's/CONFIG_SCHED_HMP=y/CONFIG_SCHED_HMP=1/' ./common/build.config.gki
           sed -i 's/CONFIG_CPU_FREQ_GOV_ONDEMAND=y/CONFIG_CPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
           sed -i 's/CONFIG_GPU_FREQ_GOV_ONDEMAND=y/CONFIG_GPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
           sed -i 's/CONFIG_SCHED_TUNE_BOOST=0/CONFIG_SCHED_TUNE_BOOST=1/' ./common/build.config.gki
           sed -i 's/CONFIG_GAMING_PERFORMANCE_BOOST=0/CONFIG_GAMING_PERFORMANCE_BOOST=1/' ./common/build.config.gki
-
-          # Add additional configuration settings
           echo "CONFIG_CPU_FREQ_GOV_SCHED=y" >> ./common/build.config.gki
           echo "CONFIG_SCHED_DYNAMIC_PERIOD=y" >> ./common/build.config.gki
           echo "CONFIG_SCHEDUTIL_UTILIZATION=1" >> ./common/build.config.gki
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
-
           echo "Snapdragon 8 Gen3 specific optimizations applied successfully."
+
+      # 继续上面的代码
+      - name: Build the Kernel
+        run: |
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "$CONFIG"
+          echo "Building the kernel..."
+          rm -rf ./common/android/abi_gki_protected_exports_*
+          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist | tee build.log
 
       - name: Verify Kernel Build
         run: |
           echo "Verifying kernel build..."
           if [ ! -f "bazel-bin/common/kernel_aarch64/Image" ]; then
             echo "Error: bazel-bin/common/kernel_aarch64/Image not found!"
+            echo "Build logs:"
+            cat build.log
             exit 1
           fi
           if [ ! -f "bazel-bin/common/kernel_aarch64/Image.lz4" ]; then
             echo "Error: bazel-bin/common/kernel_aarch64/Image.lz4 not found!"
+            echo "Build logs:"
+            cat build.log
             exit 1
           fi
           echo "Kernel build verification successful."
@@ -386,22 +282,17 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Creating bootimgs folder and copying images..."
           mkdir bootimgs
           cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
           cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
-
-          # Create gzip of the Image file
           gzip -n -k -f -9 ./bootimgs/Image > ./bootimgs/Image.gz
 
       - name: Unpack boot.img and Build Kernels
         run: |
           cd bootimgs
-          
           echo "Building Image.gz"
           gzip -n -k -f -9 ./Image > ./Image.gz
-          
           echo "Building boot.img"
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
@@ -421,8 +312,6 @@ jobs:
         run: |
           echo "Creating zip files for all formats..."
           cd ./AnyKernel3
-          
-          # Create and upload zip for each format
           ZIP_NAME="AnyKernel3-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
           echo "Creating zip file: $ZIP_NAME..."
           mv ../Image ./Image

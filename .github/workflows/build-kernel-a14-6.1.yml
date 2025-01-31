@@ -257,7 +257,7 @@ jobs:
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
           # 运行 perl 命令来修改 UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompil[...]
 
           # 开启 EAS（Energy Aware Scheduling），让 CPU 更高效地调度任务
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki
@@ -342,117 +342,33 @@ jobs:
          # 步骤: 应用 Snapdragon 8 Gen3 特定优化
       - name: Apply Snapdragon 8 Gen3 specific optimizations
         run: |
-          echo "应用 Snapdragon 8 Gen3 特定优化..."
+          echo "Applying Snapdragon 8 Gen3 specific optimizations..."
           
-          # 检查并创建 build.config.gki 文件所在的目录
+          # Ensure the build.config.gki file exists
           if [ ! -d "./common" ]; then
-            echo "警告: ./common 目录不存在，正在创建..."
-            mkdir -p ./common  # 创建目录
+            echo "Warning: ./common directory does not exist, creating it..."
+            mkdir -p ./common
           fi
 
-          # 检查 build.config.gki 文件是否存在
           if [ ! -f "./common/build.config.gki" ]; then
-            echo "警告: build.config.gki 文件不存在，正在创建..."
-            touch ./common/build.config.gki  # 创建文件
+            echo "Warning: build.config.gki file does not exist, creating it..."
+            touch ./common/build.config.gki
           fi
 
-          # 激活 Snapdragon 8 Gen3 独占调度优化
-          echo "激活 Snapdragon 8 Gen3 独占调度优化..."
+          # Apply specific optimizations for Snapdragon 8 Gen3
           sed -i 's/CONFIG_SCHED_HMP=y/CONFIG_SCHED_HMP=1/' ./common/build.config.gki
           sed -i 's/CONFIG_CPU_FREQ_GOV_ONDEMAND=y/CONFIG_CPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
           sed -i 's/CONFIG_GPU_FREQ_GOV_ONDEMAND=y/CONFIG_GPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
           sed -i 's/CONFIG_SCHED_TUNE_BOOST=0/CONFIG_SCHED_TUNE_BOOST=1/' ./common/build.config.gki
           sed -i 's/CONFIG_GAMING_PERFORMANCE_BOOST=0/CONFIG_GAMING_PERFORMANCE_BOOST=1/' ./common/build.config.gki
 
-          # 添加 Snapdragon 8 Gen3 特定的调度选项
+          # Add additional configuration settings
           echo "CONFIG_CPU_FREQ_GOV_SCHED=y" >> ./common/build.config.gki
           echo "CONFIG_SCHED_DYNAMIC_PERIOD=y" >> ./common/build.config.gki
           echo "CONFIG_SCHEDUTIL_UTILIZATION=1" >> ./common/build.config.gki
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
 
-          echo "Snapdragon 8 Gen3 特定优化应用完成。"
-
-      # Step 1: Checkout the repository
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      # Step 2: Read the package names from the wqvb.txt file
-      - name: Read Package Names from wqvb.txt
-        run: |
-          echo "Reading package names from /data/adb/modules/wqvb.txt..."
-          
-          # Assuming the file exists in the given directory, or exit with an error if not found
-          if [ ! -f "/data/adb/modules/wqvb.txt" ]; then
-            echo "Error: /data/adb/modules/wqvb.txt not found."
-            exit 1
-          fi
-
-          # Read the package names from the file
-          PACKAGE_NAMES=$(cat /data/adb/modules/wqvb.txt)
-
-          # Log the package names detected in the file
-          echo "Detected package names: $PACKAGE_NAMES"
-          
-          # Check if any of the listed packages are game processes
-          GAME_RUNNING=""
-          for PACKAGE in $PACKAGE_NAMES; do
-            # Check if the package is currently running (use pgrep to match the process)
-            if pgrep -f "$PACKAGE" > /dev/null; then
-              GAME_RUNNING="$PACKAGE"
-              break
-            fi
-          done
-
-          if [ -n "$GAME_RUNNING" ]; then
-            echo "Game detected: $GAME_RUNNING. Enabling high-performance mode..."
-            echo "HIGH_PERFORMANCE=true" >> $GITHUB_ENV
-          else
-            echo "No game detected. Enabling power-saving mode..."
-            echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
-
-      # Step 3: Apply performance settings based on the detected mode
-      - name: Apply Performance Settings
-        run: |
-          CONFIG_FILE="./common/build.config.gki"
-
-          # Check if the build.config.gki file exists, otherwise create it
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Warning: $CONFIG_FILE not found, creating it..."
-            touch "$CONFIG_FILE"
-          fi
-
-          # Apply high-performance settings if a game is detected
-          if [ "$HIGH_PERFORMANCE" == "true" ]; then
-            echo "Applying high-performance settings..."
-            echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
-            echo "CONFIG_GPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
-            echo "CONFIG_SCHED_BOOST=1" >> "$CONFIG_FILE"
-            echo "CONFIG_DRM_PANEL_FREQUENCY=120" >> "$CONFIG_FILE"
-          else
-            # Apply power-saving settings if no game is detected
-            echo "Applying power-saving settings..."
-            echo "CONFIG_CPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
-            echo "CONFIG_GPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
-            echo "CONFIG_SCHED_BOOST=0" >> "$CONFIG_FILE"
-            echo "CONFIG_DRM_PANEL_FREQUENCY=60" >> "$CONFIG_FILE"
-          fi
-
-          echo "Performance settings applied successfully."
-
-      - name: Run sed and perl Commands
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG"
-          
-          echo "Running sed commands..."
-          
-          # Run sed commands for modifications
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-          sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
-          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-
-          # Run perl command to modify UTS_VERSION
-          perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+          echo "Snapdragon 8 Gen3 specific optimizations applied successfully."
 
       - name: Build the Kernel
         run: |
@@ -469,13 +385,13 @@ jobs:
           mkdir bootimgs
           
           echo "Creating bootimgs folder and copying images..."
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./bootimgs
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image.lz4 ./
+          cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
+          cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
+          cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
+          cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
           
           # Create gzip of the Image file
-          gzip -n -k -f -9 ./Image > ./Image.gz
+          gzip -n -k -f -9 ./bootimgs/Image > ./bootimgs/Image.gz
 
       - name: Unpack boot.img and Build Kernels
         run: |

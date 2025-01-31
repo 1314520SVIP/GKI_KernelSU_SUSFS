@@ -344,10 +344,16 @@ jobs:
         run: |
           echo "应用 Snapdragon 8 Gen3 特定优化..."
           
+          # 检查并创建 build.config.gki 文件所在的目录
+          if [ ! -d "./common" ]; then
+            echo "警告: ./common 目录不存在，正在创建..."
+            mkdir -p ./common  # 创建目录
+          fi
+
           # 检查 build.config.gki 文件是否存在
           if [ ! -f "./common/build.config.gki" ]; then
             echo "警告: build.config.gki 文件不存在，正在创建..."
-            touch ./common/build.config.gki
+            touch ./common/build.config.gki  # 创建文件
           fi
 
           # 激活 Snapdragon 8 Gen3 独占调度优化

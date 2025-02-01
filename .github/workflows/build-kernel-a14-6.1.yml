@@ -153,58 +153,59 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-          steps:
-      # 步骤 1: 检出仓库代码
-      - name: 检出代码仓库
-        uses: actions/checkout@v4
-
-      # 步骤 2: 应用省电和 AI 学习优化
-      - name: 应用省电和 AI 学习优化
+      - name: Apply Power-saving and AI-learning Optimizations
         run: |
-          echo "正在应用省电和 AI 学习优化..."
-
-      # 步骤 3: 修复缺失的 build.config.gki 文件
-      - name: 修复缺失的 build.config.gki 文件
+          echo "Applying power-saving and AI-learning optimizations..."
+          
+      - name: Fix Missing build.config.gki
         run: |
-          CONFIG="./common"
           echo "切换到配置目录: $CONFIG..."
-          cd "$CONFIG" || { echo "错误: 目录 $CONFIG 不存在！"; exit 1; }
+          cd "$CONFIG/common" || { echo "错误: 目录 $CONFIG/common 不存在！"; exit 1; }
           if [ ! -f "build.config.gki" ]; then
             echo "警告: build.config.gki 文件不存在，正在创建..."
             touch build.config.gki
           fi
           echo "build.config.gki 文件已检查完成！"
 
-      # 步骤 4: 应用额外的低功耗优化
-      - name: 应用额外的低功耗优化
+      - name: Apply Additional Low-power Optimizations
         run: |
-          echo "正在应用额外的低功耗优化..."
-          # 调整 CPU 和 GPU 频率
-          for CPU in 0 4; do
-            CPU_FREQ_PATH="/sys/devices/system/cpu/cpu${CPU}/cpufreq/scaling_max_freq"
-            if [ -f "$CPU_FREQ_PATH" ]; then
-                sudo chmod 666 "$CPU_FREQ_PATH"
-                echo $((800000 + CPU * 400000)) | sudo tee "$CPU_FREQ_PATH"
-            else
-                echo "⚠️ 警告: 未找到 CPU${CPU} 的 scaling_max_freq，跳过该优化。"
-            fi
-          done
-          # GPU 频率优化
-          if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
-              echo "检测到 GPU 频率调节支持，正在应用优化..."
-              for FREQ in min_freq max_freq; do
-                  GPU_FREQ_PATH="/sys/class/kgsl/kgsl-3d0/devfreq/${FREQ}"
-                  if [ -f "$GPU_FREQ_PATH" ]; then
-                      sudo chmod 666 "$GPU_FREQ_PATH"
-                      echo $((200000 * (1 + (${FREQ} == "max_freq") * 3))) | sudo tee "$GPU_FREQ_PATH"
-                  else
-                      echo "⚠️ 警告: 未找到 GPU ${FREQ}，跳过该优化。"
-                  fi
-              done
+          echo "Applying additional low-power optimizations..."
+          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
+              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+              echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
           else
-              echo "⚠️ 警告: 不支持 GPU 频率调节，跳过优化。"
+              echo "⚠️ Warning: CPU0 scaling_max_freq not found, skipping."
           fi
-          echo "✅ 低功耗优化已完成。"
+          if [ -f /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq ]; then
+              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+              echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+          else
+              echo "⚠️ Warning: CPU4 scaling_max_freq not found, skipping."
+          fi
+          if [ -f /sys/module/input_boost/parameters/input_boost_enabled ]; then
+              sudo chmod 666 /sys/module/input_boost/parameters/input_boost_enabled
+              echo 1 | sudo tee /sys/module/input_boost/parameters/input_boost_enabled
+          else
+              echo "⚠️ Warning: input_boost_enabled not found, skipping."
+          fi
+          if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
+              echo "Detected GPU frequency scaling support, applying optimizations..."
+              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+                  echo 200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
+              else
+                  echo "⚠️ Warning: GPU min_freq not found, skipping."
+              fi
+              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/max_freq ]; then
+                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+                  echo 800000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
+              else
+                  echo "⚠️ Warning: GPU max_freq not found, skipping."
+              fi
+          else
+              echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
+          fi
+          echo "✅ Low-power optimizations applied before kernel build."
 
       # 步骤 5: 从 wqvb.txt 读取软件包名称，并检查是否有游戏进程
       - name: 检测运行中的游戏进程

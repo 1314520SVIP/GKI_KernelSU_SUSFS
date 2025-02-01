@@ -296,41 +296,11 @@ jobs:
               mkdir -p bootimgs
           fi
 
-          echo "Changing to bootimgs directory..."
-          cd bootimgs
-          echo "Current directory: $(pwd)"
-
-          # 确保 Image 文件存在
-          if [ ! -f "Image" ]; then
-              echo "Error: Image file not found in bootimgs!"
-              exit 1
-          fi
-
-          echo "Building Image.gz"
-          gzip -n -k -f -9 ./Image > ./Image.gz
-
-          echo "Building boot.img"
-          $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot.img
-
-          echo "Building boot-gz.img"
-          $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot-gz.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-gz.img
-
-          # 确保 Image.lz4 存在，否则跳过
-          if [ -f "Image.lz4" ]; then
-              echo "Building boot-lz4.img"
-              $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
-              $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-              cp ./boot-lz4.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-lz4.img
-          else
-              echo "Warning: Image.lz4 not found, skipping boot-lz4.img build..."
-          fi
-
-          echo "Kernel image build process completed."
-
+          echo "Copying kernel images to bootimgs..."
+          cp bazel-bin/common/kernel_aarch64/Image ./bootimgs/
+          cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs/
+          
+          # 检查文件是否成功
       - name: Create ZIP Files for Different Formats
         run: |
           echo "Creating zip files for all formats..."
@@ -360,5 +330,3 @@ jobs:
           path: |
             *.zip
             *.img
-
-            

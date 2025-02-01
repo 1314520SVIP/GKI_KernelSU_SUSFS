@@ -175,7 +175,7 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_uts.sh
+          perl -pi -e 's{UTS_VERSION="\$echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompil[...]
           sed -i '/CONFIG_SCHED_TUNE_BOOST/d' ./common/build.config.gki
           echo "CONFIG_SCHED_TUNE_BOOST=0" >> ./common/build.config.gki
           echo "CONFIG_SCHED_LATENCY=1" >> ./common/build.config.gki
@@ -252,7 +252,6 @@ jobs:
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
           echo "Snapdragon 8 Gen3 specific optimizations applied successfully."
 
-      # 继续上面的代码
       - name: Build the Kernel
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -260,10 +259,6 @@ jobs:
           echo "Building the kernel..."
           rm -rf ./common/android/abi_gki_protected_exports_*
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist | tee build.log
-
-      - name: Verify Kernel Build
-        run: |
-          echo "Verifying kernel build..."
           if [ ! -f "bazel-bin/common/kernel_aarch64/Image" ]; then
             echo "Error: bazel-bin/common/kernel_aarch64/Image not found!"
             echo "Build logs:"
@@ -276,6 +271,9 @@ jobs:
             cat build.log
             exit 1
           fi
+
+      - name: Verify Kernel Build
+        run: |
           echo "Kernel build verification successful."
 
       - name: Create Bootimgs Folder and Copy Images

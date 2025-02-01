@@ -254,22 +254,23 @@ jobs:
 
       - name: Build the Kernel
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
+          set -e  # 发生错误立即退出
           cd "$CONFIG"
-          echo "Building the kernel..."
-          rm -rf ./common/android/abi_gki_protected_exports_*
+          echo "Cleaning Bazel build cache..."
+          bazel clean --expunge
+          echo "Building kernel..."
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist | tee build.log
+          echo "Checking build output..."
+          find bazel-bin -name 'Image*'  # 列出所有 Image 相关文件，方便调试
           if [ ! -f "bazel-bin/common/kernel_aarch64/Image" ]; then
-            echo "Error: bazel-bin/common/kernel_aarch64/Image not found!"
-            echo "Build logs:"
-            cat build.log
-            exit 1
+          echo "Error: Image not found!"
+          cat build.log
+          exit 1
           fi
           if [ ! -f "bazel-bin/common/kernel_aarch64/Image.lz4" ]; then
-            echo "Error: bazel-bin/common/kernel_aarch64/Image.lz4 not found!"
-            echo "Build logs:"
-            cat build.log
-            exit 1
+          echo "Error: Image.lz4 not found!"
+          cat build.log
+          exit 1
           fi
 
       - name: Verify Kernel Build

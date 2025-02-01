@@ -152,70 +152,116 @@ jobs:
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          steps:
+      # 步骤 1: 检出仓库代码
+      - name: 检出代码仓库
+        uses: actions/checkout@v4
 
-      - name: Apply Power-saving and AI-learning Optimizations
+      # 步骤 2: 应用省电和 AI 学习优化
+      - name: 应用省电和 AI 学习优化
         run: |
-          echo "Applying power-saving and AI-learning optimizations..."
-          
-      - name: Fix Missing build.config.gki
+          echo "正在应用省电和 AI 学习优化..."
+
+      # 步骤 3: 修复缺失的 build.config.gki 文件
+      - name: 修复缺失的 build.config.gki 文件
         run: |
+          CONFIG="./common"
           echo "切换到配置目录: $CONFIG..."
-          cd "$CONFIG/common" || { echo "错误: 目录 $CONFIG/common 不存在！"; exit 1; }
+          cd "$CONFIG" || { echo "错误: 目录 $CONFIG 不存在！"; exit 1; }
           if [ ! -f "build.config.gki" ]; then
             echo "警告: build.config.gki 文件不存在，正在创建..."
             touch build.config.gki
           fi
           echo "build.config.gki 文件已检查完成！"
 
-      - name: Apply Additional Low-power Optimizations
+      # 步骤 4: 应用额外的低功耗优化
+      - name: 应用额外的低功耗优化
         run: |
-          echo "Applying additional low-power optimizations..."
-          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
-              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-              echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-          else
-              echo "⚠️ Warning: CPU0 scaling_max_freq not found, skipping."
-          fi
-          if [ -f /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq ]; then
-              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-              echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-          else
-              echo "⚠️ Warning: CPU4 scaling_max_freq not found, skipping."
-          fi
-          if [ -f /sys/module/input_boost/parameters/input_boost_enabled ]; then
-              sudo chmod 666 /sys/module/input_boost/parameters/input_boost_enabled
-              echo 1 | sudo tee /sys/module/input_boost/parameters/input_boost_enabled
-          else
-              echo "⚠️ Warning: input_boost_enabled not found, skipping."
-          fi
+          echo "正在应用额外的低功耗优化..."
+          # 调整 CPU 和 GPU 频率
+          for CPU in 0 4; do
+            CPU_FREQ_PATH="/sys/devices/system/cpu/cpu${CPU}/cpufreq/scaling_max_freq"
+            if [ -f "$CPU_FREQ_PATH" ]; then
+                sudo chmod 666 "$CPU_FREQ_PATH"
+                echo $((800000 + CPU * 400000)) | sudo tee "$CPU_FREQ_PATH"
+            else
+                echo "⚠️ 警告: 未找到 CPU${CPU} 的 scaling_max_freq，跳过该优化。"
+            fi
+          done
+          # GPU 频率优化
           if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
-              echo "Detected GPU frequency scaling support, applying optimizations..."
-              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then
-                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
-                  echo 200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
-              else
-                  echo "⚠️ Warning: GPU min_freq not found, skipping."
-              fi
-              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/max_freq ]; then
-                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
-                  echo 800000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
-              else
-                  echo "⚠️ Warning: GPU max_freq not found, skipping."
-              fi
+              echo "检测到 GPU 频率调节支持，正在应用优化..."
+              for FREQ in min_freq max_freq; do
+                  GPU_FREQ_PATH="/sys/class/kgsl/kgsl-3d0/devfreq/${FREQ}"
+                  if [ -f "$GPU_FREQ_PATH" ]; then
+                      sudo chmod 666 "$GPU_FREQ_PATH"
+                      echo $((200000 * (1 + (${FREQ} == "max_freq") * 3))) | sudo tee "$GPU_FREQ_PATH"
+                  else
+                      echo "⚠️ 警告: 未找到 GPU ${FREQ}，跳过该优化。"
+                  fi
+              done
           else
-              echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
+              echo "⚠️ 警告: 不支持 GPU 频率调节，跳过优化。"
           fi
-          echo "✅ Low-power optimizations applied before kernel build."
+          echo "✅ 低功耗优化已完成。"
 
-      - name: Apply Snapdragon 8 Gen3 specific optimizations
+      # 步骤 5: 从 wqvb.txt 读取软件包名称，并检查是否有游戏进程
+      - name: 检测运行中的游戏进程
         run: |
-          echo "Applying Snapdragon 8 Gen3 specific optimizations..."
+          echo "正在从 /data/adb/modules/wqvb.txt 读取软件包名称..."
+          if [ ! -f "/data/adb/modules/wqvb.txt" ]; then
+            echo "错误: 未找到 /data/adb/modules/wqvb.txt 文件。"
+            exit 1
+          fi
+          PACKAGE_NAMES=$(cat /data/adb/modules/wqvb.txt)
+          echo "检测到的软件包名称: $PACKAGE_NAMES"
+          GAME_RUNNING=""
+          for PACKAGE in $PACKAGE_NAMES; do
+            if pgrep -f "$PACKAGE" > /dev/null; then
+              GAME_RUNNING="$PACKAGE"
+              break
+            fi
+          done
+          if [ -n "$GAME_RUNNING" ]; then
+            echo "检测到游戏进程: $GAME_RUNNING，启用高性能模式..."
+            echo "HIGH_PERFORMANCE=true" >> $GITHUB_ENV
+          else
+            echo "未检测到游戏进程，启用省电模式..."
+            echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
+
+      # 步骤 6: 根据检测到的模式应用性能设置
+      - name: 应用性能设置
+        run: |
+          CONFIG_FILE="./common/build.config.gki"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "警告: 未找到 $CONFIG_FILE 文件，正在创建..."
+            touch "$CONFIG_FILE"
+          fi
+          if [ "$HIGH_PERFORMANCE" == "true" ]; then
+            echo "正在应用高性能模式设置..."
+            echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
+            echo "CONFIG_GPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
+            echo "CONFIG_SCHED_BOOST=1" >> "$CONFIG_FILE"
+            echo "CONFIG_DRM_PANEL_FREQUENCY=120" >> "$CONFIG_FILE"
+          else
+            echo "正在应用省电模式设置..."
+            echo "CONFIG_CPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
+            echo "CONFIG_GPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
+            echo "CONFIG_SCHED_BOOST=0" >> "$CONFIG_FILE"
+            echo "CONFIG_DRM_PANEL_FREQUENCY=60" >> "$CONFIG_FILE"
+          fi
+          echo "性能设置已成功应用。"
+
+      # 步骤 7: 应用 Snapdragon 8 Gen3 专属优化
+      - name: 应用 Snapdragon 8 Gen3 专属优化
+        run: |
+          echo "正在应用 Snapdragon 8 Gen3 专属优化..."
           if [ ! -d "./common" ]; then
-            echo "Warning: ./common directory does not exist, creating it..."
+            echo "警告: ./common 目录不存在，正在创建..."
             mkdir -p ./common
           fi
           if [ ! -f "./common/build.config.gki" ]; then
-            echo "Warning: build.config.gki file does not exist, creating it..."
+            echo "警告: build.config.gki 文件不存在，正在创建..."
             touch ./common/build.config.gki
           fi
           sed -i 's/CONFIG_SCHED_HMP=y/CONFIG_SCHED_HMP=1/' ./common/build.config.gki
@@ -227,7 +273,7 @@ jobs:
           echo "CONFIG_SCHED_DYNAMIC_PERIOD=y" >> ./common/build.config.gki
           echo "CONFIG_SCHEDUTIL_UTILIZATION=1" >> ./common/build.config.gki
           echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
-          echo "Snapdragon 8 Gen3 specific optimizations applied successfully."
+          echo "Snapdragon 8 Gen3 专属优化已成功应用。"
 
       - name: Run sed and perl Commands
         run: |

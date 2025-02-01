@@ -281,13 +281,14 @@ jobs:
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           echo "Creating bootimgs folder and copying images..."
-          mkdir bootimgs
+          mkdir -p bootimgs
           cp bazel-bin/common/kernel_aarch64/Image ./bootimgs
           cp bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
           gzip -n -k -f -9 ./bootimgs/Image > ./bootimgs/Image.gz
 
       - name: Unpack boot.img and Build Kernels
         run: |
+          echo "Changing to bootimgs directory..."
           cd bootimgs
           echo "Building Image.gz"
           gzip -n -k -f -9 ./Image > ./Image.gz

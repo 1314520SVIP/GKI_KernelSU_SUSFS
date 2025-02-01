@@ -206,31 +206,37 @@ jobs:
               echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
           fi
           echo "✅ Low-power optimizations applied before kernel build."
-
-      # 步骤 5: 从 wqvb.txt 读取软件包名称，并检查是否有游戏进程
-      - name: 检测运行中的游戏进程
-        run: |
-          echo "正在从 /data/adb/modules/wqvb.txt 读取软件包名称..."
-          if [ ! -f "/data/adb/modules/wqvb.txt" ]; then
-            echo "错误: 未找到 /data/adb/modules/wqvb.txt 文件。"
-            exit 1
+          
+          - name: 检测运行中的游戏进
+          run: |
+          FILE_PATH="/data/adb/modules/wqvb.txt"
+          echo "正在检查 ${FILE_PATH} 是否存在..."
+          # 检查文件是否存在，如果不存在则创建一个空文件（可修改为默认内容）
+          if [ ! -f "$FILE_PATH" ]; then
+          echo "错误: 未找到 $FILE_PATH 文件，创建默认文件..."
+          echo "# 默认软件包名称" > "$FILE_PATH"
           fi
-          PACKAGE_NAMES=$(cat /data/adb/modules/wqvb.txt)
+          # 读取软件包名称
+          PACKAGE_NAMES=$(cat "$FILE_PATH")
+          if [ -z "$PACKAGE_NAMES" ]; then
+          echo "错误: $FILE_PATH 为空，请确认文件内容正确。"
+          exit 1
+          fi
           echo "检测到的软件包名称: $PACKAGE_NAMES"
           GAME_RUNNING=""
           for PACKAGE in $PACKAGE_NAMES; do
-            if pgrep -f "$PACKAGE" > /dev/null; then
-              GAME_RUNNING="$PACKAGE"
-              break
-            fi
+          if pgrep -f "$PACKAGE" > /dev/null; then
+          GAME_RUNNING="$PACKAGE"
+          break
+          fi
           done
           if [ -n "$GAME_RUNNING" ]; then
-            echo "检测到游戏进程: $GAME_RUNNING，启用高性能模式..."
-            echo "HIGH_PERFORMANCE=true" >> $GITHUB_ENV
+          echo "检测到游戏进程: $GAME_RUNNING，启用高性能模式..."
+          echo "HIGH_PERFORMANCE=true" >> $GITHUB_ENV
           else
-            echo "未检测到游戏进程，启用省电模式..."
-            echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
-
+          echo "未检测到游戏进程，启用省电模式..."
+          echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
+          
       # 步骤 6: 根据检测到的模式应用性能设置
       - name: 应用性能设置
         run: |

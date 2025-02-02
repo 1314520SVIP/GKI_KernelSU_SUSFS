@@ -134,113 +134,122 @@ jobs:
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           echo "Adding configuration settings to gki_defconfig..."
+          # 基础KernelSU配置
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 骁龙8 Gen3性能配置
+          echo "CONFIG_SCHED_WALT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SCHED_TUNE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ENERGY_MODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DRM_PANEL_FREQUENCY=120" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEVFREQ_GOV_QCOM_ADRENO_TZ=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Apply Snapdragon 8 Gen3 Optimizations
+        run: |
+          echo "Applying Snapdragon 8 Gen3 optimizations..."
+          cd "$CONFIG/common"
+          
+          # 调度优化
+          sed -i '/CONFIG_SCHED_WALT/c\CONFIG_SCHED_WALT=y' ./arch/arm64/configs/gki_defconfig
+          sed -i '/CONFIG_SCHED_TUNE/c\CONFIG_SCHED_TUNE=y' ./arch/arm64/configs/gki_defconfig
+          
+          # GPU优化
+          echo "CONFIG_MSM_KGSL_GPU_FREQ_VOTE=1" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_MSM_KGSL_GPU_BUS_MODERATE=1" >> ./arch/arm64/configs/gki_defconfig
+          
+          # 内存优化
+          echo "CONFIG_CMA_DEBUGFS=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CMA_AREAS=19" >> ./arch/arm64/configs/gki_defconfig
 
       - name: Fix Missing build.config.gki
         run: |
-          cd "$CONFIG/common" || { echo "Error: Directory $CONFIG/common does not exist!"; exit 1; }
+          cd "$CONFIG/common" || { echo "Error: Directory $CONFIG/common not found!"; exit 1; }
           if [ ! -f "build.config.gki" ]; then
             echo "Creating build.config.gki..."
             touch build.config.gki
           fi
-          echo "build.config.gki verified!"
+          # 添加默认构建参数
+          echo "KERNEL_DIR=common" >> build.config.gki
+          echo "CLANG_VERSION=clang-r487747c" >> build.config.gki
+          echo "BUILD_CONFIG=common/build.config.gki.aarch64" >> build.config.gki
+
+      - name: Configure Game Mode
+        run: |
+          cd "$CONFIG/common"
+          # 创建游戏模式配置文件
+          mkdir -p ./game_mode
+          echo "# 默认游戏列表" > ./game_mode/wqvb.txt
+          echo "com.tencent.tmgp.pubgmhd" >> ./game_mode/wqvb.txt
+          echo "com.mobile.legends" >> ./game_mode/wqvb.txt
+          
+          # 添加游戏模式驱动配置
+          echo "CONFIG_GAME_TUNING=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_INPUT_BOOST=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SCHED_GAME=y" >> ./arch/arm64/configs/gki_defconfig
 
       - name: Run sed and perl Commands
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           
-          echo "Running sed commands..."
-          sed -i 's/check_defconfig//' ./common/build.config.gki
+          # 强制设置内核版本信息
           sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
-          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-
+          
+          # 修改UTS版本信息
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+          
+          # 移除构建限制
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
       - name: Build the Kernel
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
           echo "Building the kernel..."
           rm -rf ./common/android/abi_gki_protected_exports_*
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
 
       - name: Create Bootimgs Folder and Copy Images
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
           mkdir bootimgs
-          
-          echo "Creating bootimgs folder and copying images..."
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./bootimgs
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image.lz4 ./bootimgs
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image.lz4 ./
-          
+          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image* ./
           gzip -n -k -f -9 ./Image > ./Image.gz
+          cp Image* bootimgs/
 
-      - name: Unpack boot.img and Build Kernels
+      - name: Package Kernel Images
         run: |
           cd bootimgs
+          export BUILD_DATE=$(date +%Y%m%d)
           
-          echo "Building Image.gz"
-          gzip -n -k -f -9 ./Image > ./Image.gz
-          
-          echo "Building boot.img"
+          # 生成标准镜像
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot.img
           
-          echo "Building boot-gz.img"
-          $MKBOOTIMG --header_version 4 --kernel Image.gz --output boot-gz.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-gz.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot-gz.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-gz.img
-          
-          echo "Building boot-lz4.img"
-          $MKBOOTIMG --header_version 4 --kernel Image.lz4 --output boot-lz4.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-lz4.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot-lz4.img ../${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}-boot-lz4.img
+          # 生成性能模式镜像
+          cp Image performance-Image
+          echo "CONFIG_SCHED_GAME=y" >> ../common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ../common/arch/arm64/configs/gki_defconfig
+          $MKBOOTIMG --header_version 4 --kernel performance-Image --output boot-performance.img
+          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-performance.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
 
-      - name: Create ZIP Files for Different Formats
+      - name: Create Game Mode ZIP
         run: |
-          echo "Creating zip files for all formats..."
-          cd ./AnyKernel3
+          cd AnyKernel3
+          # 添加游戏模式配置文件
+          mkdir -p modules
+          cp ../common/game_mode/wqvb.txt ./modules/
           
-          ZIP_NAME="AnyKernel3-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          echo "Creating zip file: $ZIP_NAME..."
-          mv ../Image ./Image
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image
+          # 打包高性能版本
+          mv ../bootimgs/performance-Image ./Image
+          zip -r9 ../AnyKernel3-Performance-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
           
-          ZIP_NAME="AnyKernel3-lz4-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          echo "Creating zip file: $ZIP_NAME..."
-          mv ../Image.lz4 ./Image.lz4
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image.lz4
+          # 打包标准版本
+          mv ../bootimgs/Image ./
+          zip -r9 ../AnyKernel3-Standard-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
 
-          ZIP_NAME="AnyKernel3-gz-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          echo "Creating zip file: $ZIP_NAME..."
-          mv ../Image.gz ./Image.gz
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image.gz
-          
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -161,6 +161,8 @@ jobs:
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           
           # 骁龙8 Gen3性能配置
+          echo "CONFIG_UCLAMP_TASK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_SCHED_WALT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_SCHED_TUNE=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_ENERGY_MODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -177,6 +179,8 @@ jobs:
           # 调度优化
           sed -i '/CONFIG_SCHED_WALT/c\CONFIG_SCHED_WALT=y' ./arch/arm64/configs/gki_defconfig
           sed -i '/CONFIG_SCHED_TUNE/c\CONFIG_SCHED_TUNE=y' ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ENERGY_MODEL=y" >> ./arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> ./arch/arm64/configs/gki_defconfig
           
           # GPU优化
           echo "CONFIG_MSM_KGSL_GPU_FREQ_VOTE=1" >> ./arch/arm64/configs/gki_defconfig
@@ -221,6 +225,10 @@ jobs:
         run: |
           cd "$CONFIG"
           echo "Building the kernel..."
+          # 清理旧的符号文件
+          find ./common -name "abi_gki_protected*" -delete
+          # 强制重建符号列表
+          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0
           rm -rf ./common/android/abi_gki_protected_exports_*
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
 

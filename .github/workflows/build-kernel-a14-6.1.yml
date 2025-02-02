@@ -234,6 +234,17 @@ jobs:
             --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0 \
             --define=android_arm64.image_type=normal
 
+      - name: Build Performance Kernel
+        run: |
+          cd "$CONFIG"
+          # 应用性能配置
+          echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 重新构建性能版内核
+          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
+          cp bazel-bin/common/kernel_aarch64/Image ../performance-Image
+
       - name: Create Bootimgs Folder and Copy Images
         run: |
           mkdir bootimgs
@@ -268,17 +279,6 @@ jobs:
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> "$GITHUB_WORKSPACE/$CONFIG/common/arch/arm64/configs/gki_defconfig"
           $MKBOOTIMG --header_version 4 --kernel performance-Image --output boot-performance.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-performance.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-
-      - name: Build Performance Kernel
-        run: |
-          cd "$CONFIG"
-          # 应用性能配置
-          echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
-          
-          # 重新构建性能版内核
-          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
-          cp bazel-bin/common/kernel_aarch64/Image ../performance-Image
 
       - name: Create ZIP Files
         run: |

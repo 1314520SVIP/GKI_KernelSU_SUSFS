@@ -153,136 +153,14 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: Apply Power-saving and AI-learning Optimizations
-        run: |
-          echo "Applying power-saving and AI-learning optimizations..."
-          
       - name: Fix Missing build.config.gki
         run: |
-          echo "切换到配置目录: $CONFIG..."
-          cd "$CONFIG/common" || { echo "错误: 目录 $CONFIG/common 不存在！"; exit 1; }
+          cd "$CONFIG/common" || { echo "Error: Directory $CONFIG/common does not exist!"; exit 1; }
           if [ ! -f "build.config.gki" ]; then
-            echo "警告: build.config.gki 文件不存在，正在创建..."
+            echo "Creating build.config.gki..."
             touch build.config.gki
           fi
-          echo "build.config.gki 文件已检查完成！"
-          
-      - name: 检测运行中的游戏进
-        run: |
-          FILE_PATH="/data/adb/modules/wqvb.txt"
-            echo "正在检查 ${FILE_PATH} 是否存在..."
-            
-          # 检查文件是否存在，如果不存在则创建一个空文件
-          if [ ! -f "$FILE_PATH" ]; then
-          echo "错误: 未找到 $FILE_PATH 文件，创建默认文件..."
-          echo "# 默认软件包名称" > "$FILE_PATH"
-          fi
-          # 读取软件包名称
-          PACKAGE_NAMES=$(cat "$FILE_PATH")
-          if [ -z "$PACKAGE_NAMES" ]; then
-          echo "错误: $FILE_PATH 为空，请确认文件内容正确。"
-          exit 1
-          fi
-          echo "检测到的软件包名称: $PACKAGE_NAMES"
-          GAME_RUNNING=""
-          for PACKAGE in $PACKAGE_NAMES; do
-          if pgrep -f "$PACKAGE" > /dev/null; then
-          GAME_RUNNING="$PACKAGE"
-          break
-          fi
-          done
-          if [ -n "$GAME_RUNNING" ]; then
-          echo "检测到游戏进程: $GAME_RUNNING，启用高性能模式..."
-          echo "HIGH_PERFORMANCE=true" >> $GITHUB_ENV
-          else
-          echo "未检测到游戏进程，启用省电模式..."
-          echo "HIGH_PERFORMANCE=false" >> $GITHUB_ENV
-          
-      # 步骤 6: 根据检测到的模式应用性能设置
-      - name: 应用性能设置
-        run: |
-          CONFIG_FILE="./common/build.config.gki"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "警告: 未找到 $CONFIG_FILE 文件，正在创建..."
-            touch "$CONFIG_FILE"
-          fi
-          if [ "$HIGH_PERFORMANCE" == "true" ]; then
-            echo "正在应用高性能模式设置..."
-            echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
-            echo "CONFIG_GPU_FREQ_GOV_PERFORMANCE=1" >> "$CONFIG_FILE"
-            echo "CONFIG_SCHED_BOOST=1" >> "$CONFIG_FILE"
-            echo "CONFIG_DRM_PANEL_FREQUENCY=120" >> "$CONFIG_FILE"
-          else
-            echo "正在应用省电模式设置..."
-            echo "CONFIG_CPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
-            echo "CONFIG_GPU_FREQ_GOV_ONDEMAND=1" >> "$CONFIG_FILE"
-            echo "CONFIG_SCHED_BOOST=0" >> "$CONFIG_FILE"
-            echo "CONFIG_DRM_PANEL_FREQUENCY=60" >> "$CONFIG_FILE"
-          fi
-          echo "性能设置已成功应用。"
-
-      # 步骤 7: 应用 Snapdragon 8 Gen3 专属优化
-      - name: 应用 Snapdragon 8 Gen3 专属优化
-        run: |
-          echo "正在应用 Snapdragon 8 Gen3 专属优化..."
-          if [ ! -d "./common" ]; then
-            echo "警告: ./common 目录不存在，正在创建..."
-            mkdir -p ./common
-          fi
-          if [ ! -f "./common/build.config.gki" ]; then
-            echo "警告: build.config.gki 文件不存在，正在创建..."
-            touch ./common/build.config.gki
-          fi
-          sed -i 's/CONFIG_SCHED_HMP=y/CONFIG_SCHED_HMP=1/' ./common/build.config.gki
-          sed -i 's/CONFIG_CPU_FREQ_GOV_ONDEMAND=y/CONFIG_CPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
-          sed -i 's/CONFIG_GPU_FREQ_GOV_ONDEMAND=y/CONFIG_GPU_FREQ_GOV_PERFORMANCE=1/' ./common/build.config.gki
-          sed -i 's/CONFIG_SCHED_TUNE_BOOST=0/CONFIG_SCHED_TUNE_BOOST=1/' ./common/build.config.gki
-          sed -i 's/CONFIG_GAMING_PERFORMANCE_BOOST=0/CONFIG_GAMING_PERFORMANCE_BOOST=1/' ./common/build.config.gki
-          echo "CONFIG_CPU_FREQ_GOV_SCHED=y" >> ./common/build.config.gki
-          echo "CONFIG_SCHED_DYNAMIC_PERIOD=y" >> ./common/build.config.gki
-          echo "CONFIG_SCHEDUTIL_UTILIZATION=1" >> ./common/build.config.gki
-          echo "CONFIG_SCHED_FREQ_BIAS=1" >> ./common/build.config.gki
-          echo "Snapdragon 8 Gen3 专属优化已成功应用。"
-
-      - name: Apply Additional Low-power Optimizations
-        run: |
-          echo "Applying additional low-power optimizations..."
-          if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
-              sudo chmod 666 /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-              echo 800000 | sudo tee /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-          else
-              echo "⚠️ Warning: CPU0 scaling_max_freq not found, skipping."
-          fi
-          if [ -f /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq ]; then
-              sudo chmod 666 /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-              echo 1200000 | sudo tee /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-          else
-              echo "⚠️ Warning: CPU4 scaling_max_freq not found, skipping."
-          fi
-          if [ -f /sys/module/input_boost/parameters/input_boost_enabled ]; then
-              sudo chmod 666 /sys/module/input_boost/parameters/input_boost_enabled
-              echo 1 | sudo tee /sys/module/input_boost/parameters/input_boost_enabled
-          else
-              echo "⚠️ Warning: input_boost_enabled not found, skipping."
-          fi
-          if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
-              echo "Detected GPU frequency scaling support, applying optimizations..."
-              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then
-                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
-                  echo 200000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/min_freq
-              else
-                  echo "⚠️ Warning: GPU min_freq not found, skipping."
-              fi
-              if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/max_freq ]; then
-                  sudo chmod 666 /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
-                  echo 800000 | sudo tee /sys/class/kgsl/kgsl-3d0/devfreq/max_freq
-              else
-                  echo "⚠️ Warning: GPU max_freq not found, skipping."
-              fi
-          else
-              echo "⚠️ Warning: GPU frequency scaling not supported, skipping optimizations."
-          fi
-          echo "✅ Low-power optimizations applied before kernel build."
+          echo "build.config.gki verified!"
 
       - name: Run sed and perl Commands
         run: |
@@ -290,13 +168,10 @@ jobs:
           cd "$CONFIG"
           
           echo "Running sed commands..."
-          
-          # Run sed commands for modifications
           sed -i 's/check_defconfig//' ./common/build.config.gki
           sed -i '$s|echo "\$res"|echo "-android14-11-g71b43c3e005a-ab10734328"|' ./common/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
 
-          # Run perl command to modify UTS_VERSION
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
 
       - name: Build the Kernel
@@ -319,7 +194,6 @@ jobs:
           cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
           cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image.lz4 ./
           
-          # Create gzip of the Image file
           gzip -n -k -f -9 ./Image > ./Image.gz
 
       - name: Unpack boot.img and Build Kernels
@@ -349,7 +223,6 @@ jobs:
           echo "Creating zip files for all formats..."
           cd ./AnyKernel3
           
-          # Create and upload zip for each format
           ZIP_NAME="AnyKernel3-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
           echo "Creating zip file: $ZIP_NAME..."
           mv ../Image ./Image
@@ -375,4 +248,3 @@ jobs:
           path: |
             *.zip
             *.img
-

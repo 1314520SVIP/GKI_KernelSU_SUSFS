@@ -21,6 +21,24 @@ jobs:
         # ...其他矩阵项
 
     steps:
+    
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang-17 \
+            lld-17 \
+            libc6-dev \
+            libncurses-dev \
+            flex \
+            bison \
+            openssl \
+            libssl-dev \
+            libelf-dev
+          sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
+          sudo ln -sf /usr/bin/lld-17 /usr/bin/lld
+    
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
@@ -225,24 +243,41 @@ jobs:
         run: |
           cd "$CONFIG"
           echo "Building the kernel..."
-          # 增加配置文件验证
-          [ -f ./common/arch/arm64/configs/gki_defconfig ] || { echo "Error: gki_defconfig missing!"; exit 1; }
-          # 清理构建产物
-          find . -name "*.o" -delete
-          # 使用完整构建命令
+          # 设置工具链路径
+          export PATH=/usr/bin:$PATH
+          export CC=clang
+          export LD=ld.lld
+          
+          # 清理构建环境
+          make clean && make mrproper
+          
+          # 验证工具链
+          clang --version
+          ld.lld --version
+          
+          # 构建命令
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist \
             --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0 \
-            --define=android_arm64.image_type=normal
+            --define=android_arm64.image_type=normal \
+            --copt=-fno-stack-protector \
+            --linkopt=-fuse-ld=lld
 
       - name: Build Performance Kernel
         run: |
           cd "$CONFIG"
+          # 设置工具链环境变量
+          export PATH=/usr/bin:$PATH
+          export CC=clang
+          export LD=ld.lld
+          
           # 应用性能配置
           echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
           
           # 重新构建性能版内核
-          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
+          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist \
+            --copt=-fno-stack-protector \
+            --linkopt=-fuse-ld=lld
           cp bazel-bin/common/kernel_aarch64/Image ../performance-Image
 
       - name: Create Bootimgs Folder and Copy Images

@@ -225,12 +225,12 @@ jobs:
         run: |
           cd "$CONFIG"
           echo "Building the kernel..."
+          # 确保配置文件存在
+          [ -f ./common/arch/arm64/configs/gki_defconfig ] || { echo "gki_defconfig not found!"; exit 1; }
           # 清理旧的符号文件
           find ./common -name "abi_gki_protected*" -delete
           # 强制重建符号列表
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0
-          rm -rf ./common/android/abi_gki_protected_exports_*
-          tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist
 
       - name: Create Bootimgs Folder and Copy Images
         run: |
@@ -238,6 +238,8 @@ jobs:
           cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image* ./
           gzip -n -k -f -9 ./Image > ./Image.gz
           cp Image* bootimgs/
+          # 保留配置文件副本
+          cp $CONFIG/common/arch/arm64/configs/gki_defconfig bootimgs/
 
       - name: Package Kernel Images
         run: |
@@ -250,8 +252,8 @@ jobs:
           
           # 性能模式镜像
           cp Image performance-Image
-          echo "CONFIG_SCHED_GAME=y" >> ../common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ../common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SCHED_GAME=y" >> ../../$CONFIG/common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ../../$CONFIG/common/arch/arm64/configs/gki_defconfig
           $MKBOOTIMG --header_version 4 --kernel performance-Image --output boot-performance.img
           $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-performance.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
 

@@ -258,8 +258,8 @@ jobs:
           export CC=clang
           export LD=ld.lld
           
-          # 清理构建环境
-          make clean && make mrproper
+          # 清理构建环境（使用Bazel clean替代make）
+          tools/bazel clean
           
           # 验证工具链
           clang --version
@@ -275,10 +275,11 @@ jobs:
             --copt=-fno-stack-protector \
             --linkopt=-fuse-ld=lld
             
-          # 验证构建产物
-          if [ ! -f bazel-bin/common/Kernel_aarch64_dist/Image ]; then
-            echo "Error: Kernel image not built!"
-            ls -lR bazel-bin
+          # 验证构建产物路径
+          IMAGE_PATH="bazel-bin/common/Kernel_aarch64_dist/Image"
+          if [ ! -f "$IMAGE_PATH" ]; then
+            echo "Error: Kernel image not found at $IMAGE_PATH"
+            find bazel-bin -name Image -print
             exit 1
           fi
 
@@ -298,7 +299,15 @@ jobs:
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist \
             --copt=-fno-stack-protector \
             --linkopt=-fuse-ld=lld
-          cp bazel-bin/common/kernel_aarch64/Image ../performance-Image
+          
+          # 验证性能版构建产物
+          PERFORMANCE_IMAGE_PATH="bazel-bin/common/Kernel_aarch64_dist/Image"
+          if [ ! -f "$PERFORMANCE_IMAGE_PATH" ]; then
+            echo "Error: Performance kernel image not found!"
+            ls -lR bazel-bin
+            exit 1
+          fi
+          cp "$PERFORMANCE_IMAGE_PATH" ../performance-Image
 
       - name: Create Bootimgs Folder and Copy Images
         run: |
@@ -311,8 +320,8 @@ jobs:
           
           # 添加路径验证
           if [ ! -f Image ]; then
-            echo "Error: Kernel image not found! Build artifacts:"
-            ls -lR "$GITHUB_WORKSPACE/$CONFIG/bazel-bin"
+            echo "Available files in output directory:"
+            ls -l "$GITHUB_WORKSPACE/$CONFIG/bazel-bin/common/Kernel_aarch64_dist"
             exit 1
           fi
           

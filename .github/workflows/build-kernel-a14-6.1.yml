@@ -45,7 +45,8 @@ jobs:
             bison \
             openssl \
             libssl-dev \
-            libelf-dev
+            libelf-dev \
+            lz4  # 新增LZ4压缩工具
           sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
           sudo ln -sf /usr/bin/ld.lld-17 /usr/bin/ld.lld
     
@@ -346,8 +347,12 @@ jobs:
             file "$img" | grep "Linux kernel ARM64" || { echo "Invalid kernel image: $img"; exit 1; }
           done
           
-          ls -lh Image performance-Image
+          # 生成压缩文件（添加lz4压缩）
+          echo "Generating compressed images..."
           gzip -n -k -f -9 ./Image
+          lz4 -f -9 ./Image ./Image.lz4
+          
+          ls -lh Image*
           cp Image* performance-Image* bootimgs/
           echo "Boot images prepared:"
           ls -l bootimgs/
@@ -384,22 +389,34 @@ jobs:
           cd ./AnyKernel3
           
           # 标准版
-          ZIP_NAME="AnyKernel3-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          mv ../Image ./Image
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image
+          ZIP_NAME="AnyKernel3-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_$(date +%Y%m%d).zip"
+          if [ -f ../Image ]; then
+            mv ../Image .
+            zip -r "../$ZIP_NAME" ./*
+            rm Image
+          else
+            echo "Warning: Standard Image not found!"
+          fi
           
           # GZ压缩版
-          ZIP_NAME="AnyKernel3-gz-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          mv ../Image.gz ./Image.gz
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image.gz
+          ZIP_NAME="AnyKernel3-gz-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_$(date +%Y%m%d).zip"
+          if [ -f ../Image.gz ]; then
+            mv ../Image.gz .
+            zip -r "../$ZIP_NAME" ./*
+            rm Image.gz
+          else
+            echo "Warning: GZ compressed image not found!"
+          fi
 
           # LZ4压缩版 
-          ZIP_NAME="AnyKernel3-lz4-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_${{ matrix.date }}.zip"
-          mv ../Image.lz4 ./Image.lz4
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image.lz4
+          ZIP_NAME="AnyKernel3-lz4-${{ matrix.android_version }}-${{ matrix.kernel_version }}.${{ matrix.sub_level }}_$(date +%Y%m%d).zip"
+          if [ -f ../Image.lz4 ]; then
+            mv ../Image.lz4 .
+            zip -r "../$ZIP_NAME" ./*
+            rm Image.lz4
+          else
+            echo "Warning: LZ4 compressed image not found!"
+          fi
 
       - name: Create Game Mode ZIP
         run: |

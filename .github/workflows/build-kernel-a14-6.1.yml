@@ -21,18 +21,24 @@ jobs:
         # ...其他矩阵项
 
     steps:
-
+      - name: Cache APT packages
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/apt
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/llvm.list') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+            
       - name: Install Build Dependencies
         run: |
-          # 添加LLVM官方仓库
-          wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
+          # 修复GPG命令
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm.list
           
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             clang-17 lld-17 \
-            lld-17 \
             libc6-dev \
             libncurses-dev \
             flex \
@@ -42,21 +48,6 @@ jobs:
             libelf-dev
           sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
           sudo ln -sf /usr/bin/lld-17 /usr/bin/lld
-    
-      - name: Cache APT packages
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/llvm.list') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-    
-      - name: Install LLVM Toolchain
-        run: |
-          wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm.list
-          sudo apt-get update
-          sudo apt-get install -y clang-17 lld-17
     
       - name: Maximize build space
         uses: easimon/maximize-build-space@master

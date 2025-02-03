@@ -236,7 +236,9 @@ jobs:
           mkdir -p ./game_mode
           echo "# 默认游戏列表" > ./game_mode/wqvb.txt
           echo "com.tencent.tmgp.pubgmhd" >> ./game_mode/wqvb.txt
-          echo "com.mobile.legends" >> ./game_mode/wqvb.txt
+          echo "com.tencent.tmgp.cf" >> ./game_mode/wqvb.txt
+          # 将配置文件复制到工作区根目录
+          cp -v ./game_mode/wqvb.txt $GITHUB_WORKSPACE/game_mode.txt
           
           echo "CONFIG_GAME_TUNING=y" >> ./arch/arm64/configs/gki_defconfig
           echo "CONFIG_INPUT_BOOST=y" >> ./arch/arm64/configs/gki_defconfig
@@ -422,15 +424,32 @@ jobs:
         run: |
           cd AnyKernel3
           mkdir -p modules
-          cp ../common/game_mode/wqvb.txt ./modules/
+          
+          # 添加文件存在性检查
+          if [ -f "$GITHUB_WORKSPACE/game_mode.txt" ]; then
+            cp -v "$GITHUB_WORKSPACE/game_mode.txt" ./modules/wqvb.txt
+          else
+            echo "Warning: game_mode.txt not found! Creating empty file."
+            touch ./modules/wqvb.txt
+          fi
           
           # 高性能版
-          mv ../bootimgs/performance-Image ./Image
-          zip -r9 ../AnyKernel3-Performance-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
+          if [ -f ../bootimgs/performance-Image ]; then
+            mv ../bootimgs/performance-Image ./Image
+            zip -r9 ../AnyKernel3-Performance-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
+          else
+            echo "Error: Performance image missing!"
+            exit 1
+          fi
           
           # 标准版
-          mv ../bootimgs/Image ./
-          zip -r9 ../AnyKernel3-Standard-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
+          if [ -f ../bootimgs/Image ]; then
+            mv ../bootimgs/Image ./
+            zip -r9 ../AnyKernel3-Standard-${{ matrix.android_version }}-${{ matrix.kernel_version }}.zip * -x .git*
+          else
+            echo "Error: Standard image missing!"
+            exit 1
+          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

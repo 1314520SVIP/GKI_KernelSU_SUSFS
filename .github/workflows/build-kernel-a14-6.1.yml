@@ -304,19 +304,28 @@ jobs:
           echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
           
-          # 重新构建性能版内核
+          # 重新构建性能版内核（增加清洁步骤）
+          tools/bazel clean
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist \
+            --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0 \
+            --define=android_arm64.image_type=performance \
             --copt=-fno-stack-protector \
-            --linkopt=-fuse-ld=lld
-          
-          # 验证性能版构建产物
-          PERFORMANCE_IMAGE_PATH="bazel-bin/common/Kernel_aarch64_dist/Image"
-          if [ ! -f "$PERFORMANCE_IMAGE_PATH" ]; then
+            --linkopt=-fuse-ld=lld \
+            --subcommands=pretty_print \
+            --verbose_failures
+
+          # 动态定位性能版镜像路径
+          PERFORMANCE_IMAGE_PATH=$(find bazel-out/ -type f -name "Image" -print -quit)
+          if [ -z "$PERFORMANCE_IMAGE_PATH" ]; then
             echo "Error: Performance kernel image not found!"
-            ls -lR bazel-bin
+            find . -name "Image" -print
             exit 1
           fi
-          cp "$PERFORMANCE_IMAGE_PATH" ../performance-Image
+          
+          echo "Found performance image at: $PERFORMANCE_IMAGE_PATH"
+          mkdir -p ../kernel-artifacts
+          cp $PERFORMANCE_IMAGE_PATH ../kernel-artifacts/performance-Image
+          echo "PERFORMANCE_IMAGE_PATH=$(realpath ../kernel-artifacts/performance-Image)" >> $GITHUB_ENV
 
       - name: Create Bootimgs Folder and Copy Images
         run: |
@@ -325,18 +334,21 @@ jobs:
           
           # 使用环境变量中的正确路径
           cp $IMAGE_PATH ./Image
-          if [ ! -f Image ]; then
-            echo "Available files in artifacts directory:"
-            ls -l ../kernel-artifacts
-            exit 1
-          fi
+          cp $PERFORMANCE_IMAGE_PATH ./performance-Image
           
-          # 新增文件验证
-          file ./Image | grep "Linux kernel ARM64"
-          ls -lh ./Image
+          # 增强文件验证
+          for img in Image performance-Image; do
+            if [ ! -f "$img" ]; then
+              echo "Missing $img! Available files:"
+              ls -l
+              exit 1
+            fi
+            file "$img" | grep "Linux kernel ARM64" || { echo "Invalid kernel image: $img"; exit 1; }
+          done
           
+          ls -lh Image performance-Image
           gzip -n -k -f -9 ./Image
-          cp Image* bootimgs/
+          cp Image* performance-Image* bootimgs/
           echo "Boot images prepared:"
           ls -l bootimgs/
 

@@ -265,23 +265,32 @@ jobs:
           clang --version
           ld.lld --version
           
-          # 确保输出目录存在
-          mkdir -p bazel-bin/common/Kernel_aarch64_dist
+          # 新增：获取Bazel实际输出路径
+          BAZEL_OUTPUT_BASE=$(tools/bazel info output_base)
+          echo "BAZEL_OUTPUT_BASE=$BAZEL_OUTPUT_BASE" >> $GITHUB_ENV
           
-          # 构建命令增加输出路径验证
+          # 构建命令增加详细日志
           tools/bazel build --config=fast --lto=thin //common:kernel_aarch64_dist \
             --action_env=KMI_SYMBOL_LIST_STRICT_MODE=0 \
             --define=android_arm64.image_type=normal \
             --copt=-fno-stack-protector \
-            --linkopt=-fuse-ld=lld
+            --linkopt=-fuse-ld=lld \
+            --color=yes \
+            --subcommands=pretty_print \
+            --verbose_failures
             
-          # 验证构建产物路径
-          IMAGE_PATH="bazel-bin/common/Kernel_aarch64_dist/Image"
-          if [ ! -f "$IMAGE_PATH" ]; then
-            echo "Error: Kernel image not found at $IMAGE_PATH"
-            find bazel-bin -name Image -print
+          # 修正产物路径查找逻辑
+          IMAGE_PATH=$(find bazel-out/ -type f -name "Image" -print -quit)
+          if [ -z "$IMAGE_PATH" ]; then
+            echo "Error: Kernel image not found!"
+            find . -name "Image" -print
             exit 1
           fi
+          
+          echo "Found kernel image at: $IMAGE_PATH"
+          mkdir -p ../kernel-artifacts
+          cp $IMAGE_PATH ../kernel-artifacts/Image
+          echo "IMAGE_PATH=$(realpath ../kernel-artifacts/Image)" >> $GITHUB_ENV
 
       - name: Build Performance Kernel
         run: |
@@ -312,23 +321,22 @@ jobs:
       - name: Create Bootimgs Folder and Copy Images
         run: |
           mkdir -p bootimgs
-          echo "Copying build artifacts from:"
-          ls -l "$GITHUB_WORKSPACE/$CONFIG/bazel-bin/common/Kernel_aarch64_dist"
+          echo "Copying build artifacts..."
           
-          # 精确复制Image文件
-          cp "$GITHUB_WORKSPACE/$CONFIG/bazel-bin/common/Kernel_aarch64_dist/Image"* ./ || true
-          
-          # 添加路径验证
+          # 使用环境变量中的正确路径
+          cp $IMAGE_PATH ./Image
           if [ ! -f Image ]; then
-            echo "Available files in output directory:"
-            ls -l "$GITHUB_WORKSPACE/$CONFIG/bazel-bin/common/Kernel_aarch64_dist"
+            echo "Available files in artifacts directory:"
+            ls -l ../kernel-artifacts
             exit 1
           fi
           
-          # 添加压缩和备份
-          gzip -n -k -f -9 ./Image > ./Image.gz
+          # 新增文件验证
+          file ./Image | grep "Linux kernel ARM64"
+          ls -lh ./Image
+          
+          gzip -n -k -f -9 ./Image
           cp Image* bootimgs/
-          cp "$GITHUB_WORKSPACE/$CONFIG/common/arch/arm64/configs/gki_defconfig" bootimgs/
           echo "Boot images prepared:"
           ls -l bootimgs/
 
@@ -348,14 +356,15 @@ jobs:
           
           # 标准镜像
           $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
+            --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
           
-          # 性能模式镜像
-          cp Image performance-Image
-          echo "CONFIG_SCHED_GAME=y" >> "$GITHUB_WORKSPACE/$CONFIG/common/arch/arm64/configs/gki_defconfig"
-          echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> "$GITHUB_WORKSPACE/$CONFIG/common/arch/arm64/configs/gki_defconfig"
-          $MKBOOTIMG --header_version 4 --kernel performance-Image --output boot-performance.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot-performance.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+          # 性能模式镜像（需要先构建性能版）
+          if [ -f ../performance-Image ]; then
+            $MKBOOTIMG --header_version 4 --kernel ../performance-Image --output boot-performance.img
+            $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) \
+              --image boot-performance.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
+          fi
 
       - name: Create ZIP Files
         run: |

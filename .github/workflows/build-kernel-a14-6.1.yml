@@ -47,7 +47,7 @@ jobs:
             libssl-dev \
             libelf-dev
           sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
-          sudo ln -sf /usr/bin/lld-17 /usr/bin/lld
+          sudo ln -sf /usr/bin/ld.lld-17 /usr/bin/ld.lld
     
       - name: Maximize build space
         uses: easimon/maximize-build-space@master

@@ -230,9 +230,8 @@ jobs:
           echo "CLANG_VERSION=clang-r487747c" >> build.config.gki
           echo "BUILD_CONFIG=common/build.config.gki.aarch64" >> build.config.gki
           
-          # 修复模块声明
-          echo "MODULE_OUTS=(" >> build.config.gki
-          echo '  "KernelSU-Next/**/*.ko"' >> build.config.gki  # 添加KernelSU模块
+          # 修正模块声明方式
+          echo "EXT_MODULES=\"KernelSU-Next common/fs/susfs common/drivers\"" >> build.config.gki
           echo '  "common/fs/susfs/*.ko"' >> build.config.gki    # 添加SUSFS模块
           echo '  "common/drivers/*.ko"' >> build.config.gki     # 其他可能生成的模块
           echo ")" >> build.config.gki

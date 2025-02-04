@@ -229,6 +229,13 @@ jobs:
           echo "KERNEL_DIR=common" >> build.config.gki
           echo "CLANG_VERSION=clang-r487747c" >> build.config.gki
           echo "BUILD_CONFIG=common/build.config.gki.aarch64" >> build.config.gki
+          
+          # 修复模块声明
+          echo "MODULE_OUTS=(" >> build.config.gki
+          echo '  "KernelSU-Next/**/*.ko"' >> build.config.gki  # 添加KernelSU模块
+          echo '  "common/fs/susfs/*.ko"' >> build.config.gki    # 添加SUSFS模块
+          echo '  "common/drivers/*.ko"' >> build.config.gki     # 其他可能生成的模块
+          echo ")" >> build.config.gki
 
       - name: Configure Game Mode
         run: |
@@ -264,6 +271,9 @@ jobs:
           # 清理构建环境（使用Bazel clean替代make）
           tools/bazel clean
           
+          # 新增模块声明参数
+          EXTRA_MODULES="--module_outs=KernelSU-Next/**/*.ko,common/fs/susfs/*.ko,common/drivers/*.ko"
+          
           # 验证工具链
           clang --version
           ld.lld --version
@@ -280,7 +290,8 @@ jobs:
             --linkopt=-fuse-ld=lld \
             --color=yes \
             --subcommands=pretty_print \
-            --verbose_failures
+            --verbose_failures \
+            $EXTRA_MODULES
             
           # 修正产物路径查找逻辑
           IMAGE_PATH=$(find bazel-out/ -type f -name "Image" -print -quit)
@@ -306,6 +317,11 @@ jobs:
           # 应用性能配置
           echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 添加相同的模块参数
+          EXTRA_MODULES="--module_outs=KernelSU-Next/**/*.ko,common/fs/susfs/*.ko,common/drivers/*.ko"
+          
+          tools/bazel build ... $EXTRA_MODULES
           
           # 重新构建性能版内核（增加清洁步骤）
           tools/bazel clean

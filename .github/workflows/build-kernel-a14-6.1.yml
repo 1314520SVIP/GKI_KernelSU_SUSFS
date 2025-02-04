@@ -287,7 +287,7 @@ jobs:
             --linkopt=-fuse-ld=lld \
             --color=yes \
             --subcommands=pretty_print \
-            --verbose_failures \
+            --verbose_failures
             
           # 修正产物路径查找逻辑
           IMAGE_PATH=$(find bazel-out/ -type f -name "Image" -print -quit)

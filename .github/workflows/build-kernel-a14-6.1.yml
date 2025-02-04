@@ -271,9 +271,6 @@ jobs:
           # 清理构建环境（使用Bazel clean替代make）
           tools/bazel clean
           
-          # 新增模块声明参数
-          EXTRA_MODULES="--module_outs=KernelSU-Next/**/*.ko,common/fs/susfs/*.ko,common/drivers/*.ko"
-          
           # 验证工具链
           clang --version
           ld.lld --version
@@ -291,7 +288,6 @@ jobs:
             --color=yes \
             --subcommands=pretty_print \
             --verbose_failures \
-            $EXTRA_MODULES
             
           # 修正产物路径查找逻辑
           IMAGE_PATH=$(find bazel-out/ -type f -name "Image" -print -quit)
@@ -317,11 +313,6 @@ jobs:
           # 应用性能配置
           echo "CONFIG_SCHED_GAME=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CPU_FREQ_GOV_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
-          
-          # 添加相同的模块参数
-          EXTRA_MODULES="--module_outs=KernelSU-Next/**/*.ko,common/fs/susfs/*.ko,common/drivers/*.ko"
-          
-          tools/bazel build ... $EXTRA_MODULES
           
           # 重新构建性能版内核（增加清洁步骤）
           tools/bazel clean

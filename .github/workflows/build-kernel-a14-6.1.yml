@@ -136,14 +136,41 @@ jobs:
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           echo "Applying SUSFS patches..."
+          
+          # 创建必要的目录结构
+          mkdir -p ./common/fs/susfs
+          mkdir -p ./common/include/linux
+          
+          # 复制补丁文件
           cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}.patch ./common/
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          
+          # 验证源文件存在性
+          if [ ! -d "../susfs4ksu/kernel_patches/fs" ]; then
+            echo "Error: SUSFS fs patches directory missing!"
+            exit 1
+          fi
+          
+          # 复制文件并验证
+          echo "Copying SUSFS files..."
+          cp -rv ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp -rv ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          
+          # 应用补丁前验证目录存在性
+          [ -d "KernelSU-Next" ] || { echo "KernelSU-Next directory missing!"; exit 1; }
+          [ -d "common" ] || { echo "common directory missing!"; exit 1; }
+
+          echo "Applying KernelSU patch..."
           cd ./KernelSU-Next
           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
+          
+          echo "Applying main SUSFS patch..."
           cd ../common
           patch -p1 < 50_add_susfs_in_gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}.patch || true
+          
+          # 最终验证
+          [ -d "./fs/susfs" ] || { echo "SUSFS directory not created!"; exit 1; }
+          [ -f "./fs/susfs/susfs.h" ] || { echo "SUSFS header file missing!"; exit 1; }
           
       - name: Apply Next-SUSFS Patches
         run: |
@@ -265,9 +292,18 @@ jobs:
           export CC=clang
           export LD=ld.lld
           
-          # 确保模块路径存在
-          [ -d "common/fs/susfs" ] || { echo "SUSFS directory missing!"; exit 1; }
-          [ -d "KernelSU-Next" ] || { echo "KernelSU directory missing!"; exit 1; }
+          # 增强目录验证
+          echo "Verifying directory structure..."
+          [ -d "common/fs/susfs" ] || { 
+            echo "SUSFS directory structure:";
+            find common/fs -maxdepth 2 -type d;
+            exit 1; 
+          }
+          [ -d "KernelSU-Next" ] || { 
+            echo "KernelSU directory structure:";
+            find . -name KernelSU-Next -type d;
+            exit 1; 
+          }
           
           # 清理构建环境（使用Bazel clean替代make）
           tools/bazel clean
